@@ -18,6 +18,8 @@ todos_collection = db['todos']  # Use your collection name here
 
 # Function to add a todo
 def add_todo(username, task, deadline):
+    # Convert deadline to datetime
+    deadline = datetime.combine(deadline, datetime.min.time())
     todos_collection.insert_one({'username': username, 'task': task, 'deadline': deadline, 'completed': False})
 
 # Function to view todos for a specific user
@@ -26,6 +28,8 @@ def view_todos(username):
 
 # Function to update a todo
 def update_todo(todo_id, new_task, new_deadline):
+    # Convert new_deadline to datetime
+    new_deadline = datetime.combine(new_deadline, datetime.min.time())
     todos_collection.update_one({'_id': ObjectId(todo_id)}, {'$set': {'task': new_task, 'deadline': new_deadline}})
 
 # Function to delete a todo
@@ -38,16 +42,19 @@ def mark_as_completed(todo_id):
 
 # Streamlit app interface
 def main():
+    st.set_page_config(page_title="To-Do List App", page_icon="📝", layout="wide")
     st.title("📝 To-Do List Application")
+    st.markdown("---")
 
     # User input for name
-    username = st.text_input("👤 Enter your name")
+    username = st.text_input("👤 Enter your name", placeholder="Your Name")
     
     if username:
-        # Add a task
-        task = st.text_input("🆕 Enter a new task")
-        deadline = st.date_input("🗓️ Select a deadline")
-        
+        # Add a task section
+        st.subheader("Add a New Task")
+        task = st.text_input("🆕 Enter a new task", placeholder="Task description")
+        deadline = st.date_input("🗓️ Select a deadline", min_value=datetime.today().date())
+
         if st.button("✅ Add Task"):
             if task:
                 add_todo(username, task, deadline)
@@ -56,6 +63,7 @@ def main():
                 st.warning("❗ Please enter a task.", icon="⚠️")
 
         # Display tasks
+        st.markdown("---")
         st.subheader(f"📋 {username}'s Current To-Do List")
         todos = view_todos(username)
 
@@ -64,14 +72,18 @@ def main():
             
             with col1:
                 # Task text with caution for pending tasks
-                if not todo['completed']:
-                    st.markdown(f"<div style='color: #D50000;'>{todo['task']} (Deadline: {todo['deadline']})</div>", unsafe_allow_html=True)
+                completed_status = todo.get('completed', False)
+                deadline_str = todo['deadline'].strftime("%Y-%m-%d")  # Format deadline for display
+                task_display = f"{todo['task']} (Deadline: {deadline_str})"
+                
+                if not completed_status:
+                    st.markdown(f"<div style='color: #D50000;'>{task_display}</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"<div style='color: #4CAF50;'>{todo['task']} (Deadline: {todo['deadline']}) - Completed</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='color: #4CAF50;'>{task_display} - Completed</div>", unsafe_allow_html=True)
 
             with col2:
                 # Checkbox for completion
-                if not todo['completed']:
+                if not completed_status:
                     if st.checkbox("✅ Work Done", key=f"completed_{todo['_id']}"):
                         mark_as_completed(todo['_id'])
                         st.success(f'Task marked as done: {todo["task"]}', icon="✅")
@@ -80,7 +92,7 @@ def main():
             with col3:
                 # Update functionality
                 new_task = st.text_input("Update task", value=todo['task'], key=f"new_task_{todo['_id']}")
-                new_deadline = st.date_input("Update deadline", value=todo['deadline'], key=f"new_deadline_{todo['_id']}")
+                new_deadline = st.date_input("Update deadline", value=todo['deadline'].date(), key=f"new_deadline_{todo['_id']}")
                 
                 if st.button("🔄 Update", key=f"update_{todo['_id']}"):
                     if new_task:
