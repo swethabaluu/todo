@@ -10,6 +10,9 @@ todos_collection = db['todos']  # Replace 'todos' with your collection name
 
 # Function to add a new todo
 def add_todo(username, task, deadline):
+    # Convert date to datetime
+    if isinstance(deadline, datetime.date):
+        deadline = datetime.datetime.combine(deadline, datetime.datetime.min.time())  # Combine with min time
     todos_collection.insert_one({'username': username, 'task': task, 'deadline': deadline, 'completed': False})
 
 # Function to get todos for a specific user
@@ -22,6 +25,9 @@ def mark_completed(todo_id):
 
 # Function to update a todo
 def update_todo(todo_id, task, deadline, completed):
+    # Convert date to datetime
+    if isinstance(deadline, datetime.date):
+        deadline = datetime.datetime.combine(deadline, datetime.datetime.min.time())  # Combine with min time
     todos_collection.update_one({'_id': todo_id}, {'$set': {'task': task, 'deadline': deadline, 'completed': completed}})
 
 # Function to delete a todo
@@ -51,7 +57,7 @@ def main():
             for todo in todos:
                 # Safely retrieve the 'deadline' field using get()
                 deadline_str = todo.get('deadline')
-                if isinstance(deadline_str, datetime.date):
+                if isinstance(deadline_str, datetime.datetime):
                     deadline_str = deadline_str.strftime("%Y-%m-%d")  # Format deadline for display
                 else:
                     deadline_str = "No deadline set"  # Default message for missing deadline
