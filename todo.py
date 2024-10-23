@@ -39,12 +39,15 @@ def display_tasks(username):
             completed = todo['completed']
             task_id = str(todo['_id'])
             
-            # Task display with checkbox for completed status and caution symbol for incomplete tasks
+            # Task display with checkbox for completed status
             col1, col2, col3 = st.columns([6, 1, 1])
             with col1:
-                if st.checkbox(task, value=completed, key=task_id):
-                    # Toggle completion status on checkbox change
-                    update_todo_status(username, task_id, not completed)
+                # Set the checkbox value based on the task's completion status
+                checkbox_value = st.checkbox(task, value=completed, key=task_id)
+
+                # Update the task status if checkbox state changes
+                if checkbox_value != completed:
+                    update_todo_status(username, task_id, checkbox_value)
             with col2:
                 if not completed:
                     st.warning("⚠️")
