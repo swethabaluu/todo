@@ -1,6 +1,8 @@
 import streamlit as st
 from pymongo import MongoClient
 import datetime
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # MongoDB connection string
 MONGO_URI = "mongodb+srv://swethabalu276:Student123@cluster0.tvrpc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
@@ -10,7 +12,6 @@ todos_collection = db['todos']  # Replace 'todos' with your collection name
 
 # Function to add a new todo
 def add_todo(username, task, deadline):
-    # Convert date to datetime
     if isinstance(deadline, datetime.date):
         deadline = datetime.datetime.combine(deadline, datetime.datetime.min.time())  # Combine with min time
     todos_collection.insert_one({'username': username, 'task': task, 'deadline': deadline, 'completed': False})
@@ -25,7 +26,6 @@ def mark_completed(todo_id):
 
 # Function to update a todo
 def update_todo(todo_id, task, deadline, completed):
-    # Convert date to datetime
     if isinstance(deadline, datetime.date):
         deadline = datetime.datetime.combine(deadline, datetime.datetime.min.time())  # Combine with min time
     todos_collection.update_one({'_id': todo_id}, {'$set': {'task': task, 'deadline': deadline, 'completed': completed}})
@@ -44,23 +44,46 @@ def main():
         st.subheader(f"Hello, {username}! Manage your tasks below:")
         
         # Add a new todo
-        task = st.text_input("Enter a new task")
+        task = st.text_input("Enter a new task", key="task_input")  # Specify a key for state management
         deadline = st.date_input("Select a deadline", datetime.date.today())
 
         if st.button("Add Task"):
-            add_todo(username, task, deadline)
-            st.success("Task added successfully!")
+            if task:
+                add_todo(username, task, deadline)
+                st.success("Task added successfully!")
+                st.session_state.task_input = ""  # Clear the input box after adding the task
+            else:
+                st.warning("Please enter a task!")
 
         # Display todos
         todos = get_todos(username)
         if todos:
+            # Sort todos by deadline
+            todos.sort(key=lambda x: x['deadline'])
+
+            # Prepare data for visualization
+            task_names = [todo['task'] for todo in todos]
+            deadlines = [todo['deadline'] for todo in todos]
+            
+            # Create a DataFrame for visualization
+            df = pd.DataFrame({'Task': task_names, 'Deadline': deadlines})
+            df['Deadline'] = pd.to_datetime(df['Deadline'])  # Ensure deadlines are in datetime format
+
+            # Plotting the tasks by deadline
+            plt.figure(figsize=(10, 5))
+            plt.barh(df['Task'], df['Deadline'].dt.date, color='skyblue')
+            plt.xlabel("Deadline")
+            plt.title("Tasks Prioritized by Deadline")
+            plt.xticks(rotation=45)
+            st.pyplot(plt)
+
             for todo in todos:
                 # Safely retrieve the 'deadline' field using get()
                 deadline_str = todo.get('deadline')
                 if isinstance(deadline_str, datetime.datetime):
                     deadline_str = deadline_str.strftime("%Y-%m-%d")  # Format deadline for display
                 else:
-                    deadline_str = "No deadline set"  # Default message for missing deadline
+                    deadline_str = "No deadline set"
 
                 st.write(f"**Task:** {todo['task']} | **Deadline:** {deadline_str}")
                 
