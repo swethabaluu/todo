@@ -1,6 +1,8 @@
 import streamlit as st
 from pymongo import MongoClient
 from bson import ObjectId
+import matplotlib.pyplot as plt
+import pandas as pd
 
 # MongoDB Atlas connection
 client = MongoClient("mongodb+srv://swethabalu276:Student123@cluster0.tvrpc.mongodb.net/todo_db?retryWrites=true&w=majority&appName=Cluster0")
@@ -40,13 +42,8 @@ def display_tasks(username):
             # Task display with checkbox for completed status and caution symbol for incomplete tasks
             col1, col2, col3 = st.columns([6, 1, 1])
             with col1:
-                # Checkbox state based on completed status
-                checkbox_value = st.checkbox(task, value=completed, key=task_id)
-                # Check if checkbox state has changed
-                if checkbox_value != completed:
-                    update_todo_status(username, task_id, checkbox_value)
-                    st.success("Task status updated successfully!")
-
+                if st.checkbox(task, completed, key=task_id):
+                    update_todo_status(username, task_id, not completed)
             with col2:
                 if not completed:
                     st.warning("⚠️")
@@ -54,6 +51,31 @@ def display_tasks(username):
                 if st.button("Delete", key=f"del_{task_id}"):
                     delete_task(username, task_id)
                     st.success("Task deleted successfully!")
+
+# Function to plot task completion status
+def plot_task_completion(username):
+    todos_collection = db[username]
+    todos = list(todos_collection.find())
+    
+    if todos:
+        # Count completed and incomplete tasks
+        completed_count = sum(1 for todo in todos if todo['completed'])
+        incomplete_count = len(todos) - completed_count
+
+        # Create a DataFrame for plotting
+        data = pd.DataFrame({
+            'Status': ['Completed', 'Incomplete'],
+            'Count': [completed_count, incomplete_count]
+        })
+
+        # Plotting the bar chart
+        plt.figure(figsize=(6, 4))
+        plt.bar(data['Status'], data['Count'], color=['green', 'red'])
+        plt.title('Task Completion Status')
+        plt.xlabel('Status')
+        plt.ylabel('Number of Tasks')
+        plt.xticks(rotation=0)
+        st.pyplot(plt)  # Display the plot in Streamlit
 
 # Streamlit app main function
 def main():
@@ -65,24 +87,23 @@ def main():
     if username:
         st.write(f"Hello, {username}!")
         
-        # Manage task input using session state
-        if 'task_input' not in st.session_state:
-            st.session_state.task_input = ""
-
         # Input field for adding a new task
-        task = st.text_input("New Task:", value=st.session_state.task_input)
-
+        task = st.text_input("New Task:")
+        
         if st.button("Add"):
             if task:
                 add_todo(username, task)
                 st.success("Task added successfully!")
-                st.session_state.task_input = ""  # Clear the task input field
             else:
                 st.error("Please enter a task.")
 
         # Display tasks
         st.write("### Your Tasks")
         display_tasks(username)
+
+        # Plot task completion status
+        st.write("### Task Completion Status")
+        plot_task_completion(username)
 
 if __name__ == "__main__":
     main()
