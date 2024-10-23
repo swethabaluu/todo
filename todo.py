@@ -9,6 +9,10 @@ client = MongoClient(MONGODB_URI)
 db = client.todo_db
 
 def add_todo(username, task, deadline):
+    # Convert deadline to datetime
+    if isinstance(deadline, datetime.date):
+        deadline = datetime.combine(deadline, datetime.min.time())
+
     # Insert the task into the MongoDB collection
     todos_collection = db[username]
     todos_collection.insert_one({
