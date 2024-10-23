@@ -14,16 +14,20 @@ todos_collection = db["todos"]
 
 # Function to add a todo
 def add_todo(username, task, deadline):
+    deadline_str = deadline.strftime("%Y-%m-%d")  # Convert to string format
     todos_collection.insert_one({
         'username': username,
         'task': task,
-        'deadline': deadline,
+        'deadline': deadline_str,
         'completed': False
     })
 
 # Function to get todos
 def get_todos(username):
-    return list(todos_collection.find({'username': username}))
+    todos = list(todos_collection.find({'username': username}))
+    for todo in todos:
+        todo['deadline'] = datetime.datetime.strptime(todo['deadline'], "%Y-%m-%d").date()  # Convert back to date
+    return todos
 
 # Function to mark a todo as completed
 def mark_completed(todo_id):
@@ -64,7 +68,6 @@ def main():
             if task:
                 add_todo(username, task, deadline)
                 st.success("Task added successfully!")
-                st.session_state.task_input = ""  # Clear the input box after adding the task
             else:
                 st.error("Task name cannot be empty.")
 
@@ -73,7 +76,7 @@ def main():
         if todos:
             sorted_todos = sorted(todos, key=lambda x: x['deadline'])  # Sort by deadline
             for index, todo in enumerate(sorted_todos):
-                deadline_str = todo['deadline'].strftime("%Y-%m-%d")
+                deadline_str = todo['deadline'].strftime("%Y-%m-%d")  # Display date
                 st.write(f"{index + 1}. **Task:** {todo['task']} | **Deadline:** {deadline_str}")
 
                 # Checkbox to mark as completed
