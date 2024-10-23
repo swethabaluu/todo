@@ -40,8 +40,13 @@ def display_tasks(username):
             # Task display with checkbox for completed status and caution symbol for incomplete tasks
             col1, col2, col3 = st.columns([6, 1, 1])
             with col1:
-                if st.checkbox(task, completed, key=task_id):
-                    update_todo_status(username, task_id, not completed)
+                # Checkbox state based on completed status
+                checkbox_value = st.checkbox(task, value=completed, key=task_id)
+                # Check if checkbox state has changed
+                if checkbox_value != completed:
+                    update_todo_status(username, task_id, checkbox_value)
+                    st.success("Task status updated successfully!")
+
             with col2:
                 if not completed:
                     st.warning("⚠️")
@@ -60,16 +65,18 @@ def main():
     if username:
         st.write(f"Hello, {username}!")
         
+        # Manage task input using session state
+        if 'task_input' not in st.session_state:
+            st.session_state.task_input = ""
+
         # Input field for adding a new task
-        # Use the value parameter to reset input after adding a task
-        task = st.text_input("New Task:", value="")
-        
+        task = st.text_input("New Task:", value=st.session_state.task_input)
+
         if st.button("Add"):
             if task:
                 add_todo(username, task)
                 st.success("Task added successfully!")
-                # Clear the task input field by setting value to an empty string
-                task = ""
+                st.session_state.task_input = ""  # Clear the task input field
             else:
                 st.error("Please enter a task.")
 
