@@ -1,49 +1,32 @@
 import streamlit as st
-import pymongo
 from pymongo import MongoClient
-import os
-from dotenv import load_dotenv
 import datetime
 
-# Load environment variables from .env file
-load_dotenv()
+# MongoDB connection string
+MONGO_URI = "mongodb+srv://swethabalu276:Student123@cluster0.tvrpc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URI)
+db = client['vcc']  # Replace 'vcc' with your database name
+todos_collection = db['todos']  # Replace 'todos' with your collection name
 
-# MongoDB connection
-MONGODB_URI = os.getenv("MONGODB_URI")
-client = MongoClient(MONGODB_URI)
-db = client.todo_db
-todos_collection = db.todos
-
-# Function to add a todo
+# Function to add a new todo
 def add_todo(username, task, deadline):
-    todos_collection.insert_one({
-        'username': username,
-        'task': task,
-        'deadline': deadline,
-        'completed': False
-    })
+    todos_collection.insert_one({'username': username, 'task': task, 'deadline': deadline, 'completed': False})
 
-# Function to get todos
+# Function to get todos for a specific user
 def get_todos(username):
     return list(todos_collection.find({'username': username}))
 
+# Function to mark a todo as completed
+def mark_completed(todo_id):
+    todos_collection.update_one({'_id': todo_id}, {'$set': {'completed': True}})
+
 # Function to update a todo
 def update_todo(todo_id, task, deadline, completed):
-    todos_collection.update_one(
-        {'_id': todo_id},
-        {'$set': {'task': task, 'deadline': deadline, 'completed': completed}}
-    )
+    todos_collection.update_one({'_id': todo_id}, {'$set': {'task': task, 'deadline': deadline, 'completed': completed}})
 
 # Function to delete a todo
 def delete_todo(todo_id):
     todos_collection.delete_one({'_id': todo_id})
-
-# Function to mark todo as completed
-def mark_completed(todo_id):
-    todos_collection.update_one(
-        {'_id': todo_id},
-        {'$set': {'completed': True}}
-    )
 
 # Streamlit UI
 def main():
@@ -66,7 +49,13 @@ def main():
         todos = get_todos(username)
         if todos:
             for todo in todos:
-                deadline_str = todo['deadline'].strftime("%Y-%m-%d")  # Format deadline for display
+                # Safely retrieve the 'deadline' field using get()
+                deadline_str = todo.get('deadline')
+                if isinstance(deadline_str, datetime.date):
+                    deadline_str = deadline_str.strftime("%Y-%m-%d")  # Format deadline for display
+                else:
+                    deadline_str = "No deadline set"  # Default message for missing deadline
+
                 st.write(f"**Task:** {todo['task']} | **Deadline:** {deadline_str}")
                 
                 # Checkbox to mark as completed
@@ -77,7 +66,7 @@ def main():
                 # Update task
                 if st.button("Update", key=f"update-{todo['_id']}"):
                     new_task = st.text_input("Update Task", value=todo['task'])
-                    new_deadline = st.date_input("Update Deadline", value=todo['deadline'])
+                    new_deadline = st.date_input("Update Deadline", value=deadline_str if isinstance(deadline_str, str) else datetime.date.today())
                     update_todo(todo['_id'], new_task, new_deadline, todo['completed'])
                     st.success("Task updated successfully!")
 
