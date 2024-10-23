@@ -15,57 +15,47 @@ client = MongoClient(MONGODB_URI)
 db = client['todo_db']
 todos_collection = db['todos']
 
+# Function to add a todo
 def add_todo(task):
     todos_collection.insert_one({'task': task})
-    print(f'Task added: {task}')
 
+# Function to view todos
 def view_todos():
-    todos = todos_collection.find()
-    print("\nCurrent To-Do List:")
-    for todo in todos:
-        print(f"- {todo['task']} (ID: {todo['_id']})")
-    print("")
+    return todos_collection.find()
 
+# Function to update a todo
 def update_todo(todo_id, new_task):
-    result = todos_collection.update_one({'_id': todo_id}, {'$set': {'task': new_task}})
-    if result.modified_count > 0:
-        print(f'Task updated to: {new_task}')
-    else:
-        print("No task found with that ID.")
+    todos_collection.update_one({'_id': ObjectId(todo_id)}, {'$set': {'task': new_task}})
 
+# Function to delete a todo
 def delete_todo(todo_id):
-    result = todos_collection.delete_one({'_id': todo_id})
-    if result.deleted_count > 0:
-        print(f'Task with ID {todo_id} deleted.')
-    else:
-        print("No task found with that ID.")
+    todos_collection.delete_one({'_id': ObjectId(todo_id)})
 
+# Streamlit app interface
 def main():
-    while True:
-        print("To-Do List Menu:")
-        print("1. Add Task")
-        print("2. View Tasks")
-        print("3. Update Task")
-        print("4. Delete Task")
-        print("5. Exit")
-        choice = input("Choose an option (1-5): ")
+    st.title("To-Do List")
 
-        if choice == '1':
-            task = input("Enter task: ")
+    # Add a task
+    task = st.text_input("Enter a new task")
+    if st.button("Add Task"):
+        if task:
             add_todo(task)
-        elif choice == '2':
-            view_todos()
-        elif choice == '3':
-            todo_id = input("Enter task ID to update: ")
-            new_task = input("Enter new task: ")
-            update_todo(todo_id, new_task)
-        elif choice == '4':
-            todo_id = input("Enter task ID to delete: ")
-            delete_todo(todo_id)
-        elif choice == '5':
-            break
+            st.success(f'Task added: {task}')
         else:
-            print("Invalid choice. Please choose again.")
+            st.warning("Please enter a task.")
+
+    # Display tasks
+    st.subheader("Current To-Do List")
+    todos = view_todos()
+    
+    for todo in todos:
+        col1, col2 = st.columns([3, 1])
+        col1.text(todo['task'])
+        with col2:
+            if st.button("Delete", key=todo['_id']):
+                delete_todo(todo['_id'])
+                st.success(f'Task with ID {todo["_id"]} deleted.')
+                st.experimental_rerun()  # Refresh the page
 
 if __name__ == '__main__':
     main()
