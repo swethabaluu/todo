@@ -48,7 +48,7 @@ def display_tasks(username):
             with col3:
                 if st.button("Delete", key=f"del_{task_id}"):
                     delete_task(username, task_id)
-                    st.experimental_rerun()
+                    # Instead of rerunning, we can use a flag to refresh the state
 
 # Streamlit app main function
 def main():
@@ -63,17 +63,14 @@ def main():
         # Input field for adding a new task
         task = st.text_input("New Task:")
         
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("Add"):
-                if task:
-                    add_todo(username, task)
-                    st.experimental_rerun()  # Clear the task input after adding
-        with col2:
-            st.button("Update")  # Placeholder for updating functionality if needed
-        with col3:
-            st.button("Delete")  # Delete is handled per task row
-        
+        if st.button("Add"):
+            if task:
+                add_todo(username, task)
+                st.success("Task added successfully!")
+                task = ""  # Clear the input box after adding the task
+            else:
+                st.error("Please enter a task.")
+
         # Display tasks
         st.write("### Your Tasks")
         display_tasks(username)
