@@ -12,8 +12,8 @@ load_dotenv()
 # MongoDB connection
 MONGODB_URI = os.getenv('MONGODB_URI')
 client = MongoClient(MONGODB_URI)
-db = client['todo_db']
-todos_collection = db['todos']
+db = client['todo_db']  # Use your database name here
+todos_collection = db['todos']  # Use your collection name here
 
 # Function to add a todo
 def add_todo(task):
@@ -33,7 +33,7 @@ def delete_todo(todo_id):
 
 # Streamlit app interface
 def main():
-    st.title("To-Do List")
+    st.title("To-Do List Application")
 
     # Add a task
     task = st.text_input("Enter a new task")
@@ -49,9 +49,16 @@ def main():
     todos = view_todos()
     
     for todo in todos:
-        col1, col2 = st.columns([3, 1])
+        col1, col2, col3 = st.columns([3, 2, 1])
         col1.text(todo['task'])
         with col2:
+            if st.button("Update", key=f"update_{todo['_id']}"):
+                new_task = st.text_input("Update task", value=todo['task'], key=f"new_task_{todo['_id']}")
+                if st.button("Save", key=f"save_{todo['_id']}"):
+                    update_todo(todo['_id'], new_task)
+                    st.success(f'Task updated to: {new_task}')
+                    st.experimental_rerun()  # Refresh the page
+        with col3:
             if st.button("Delete", key=todo['_id']):
                 delete_todo(todo['_id'])
                 st.success(f'Task with ID {todo["_id"]} deleted.')
