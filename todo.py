@@ -1,19 +1,19 @@
 import streamlit as st
 from pymongo import MongoClient
+import datetime
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-# MongoDB connection
-MONGODB_URI = "mongodb+srv://swethabalu276:Student123@cluster0.tvrpc.mongodb.net/todo_db?retryWrites=true&w=majority&appName=Cluster0"
-client = MongoClient(MONGODB_URI)
+# MongoDB Atlas connection
+client = MongoClient("mongodb+srv://swethabalu276:Student123@cluster0.tvrpc.mongodb.net/todo_db?retryWrites=true&w=majority&appName=Cluster0")
 db = client.todo_db
 
+# Function to add a new task
 def add_todo(username, task, deadline):
-    # Convert deadline to datetime
     if isinstance(deadline, datetime.date):
-        deadline = datetime.combine(deadline, datetime.min.time())
-
-    # Insert the task into the MongoDB collection
+        # Convert datetime.date to datetime.datetime
+        deadline = datetime.combine(deadline, datetime.min.time())  
+    
     todos_collection = db[username]
     todos_collection.insert_one({
         'task': task,
@@ -21,81 +21,85 @@ def add_todo(username, task, deadline):
         'completed': False
     })
 
-def get_todos(username):
+# Function to update a task's completion status
+def update_todo_status(username, task_id, completed):
     todos_collection = db[username]
-    return list(todos_collection.find())
+    todos_collection.update_one(
+        {'_id': task_id},
+        {'$set': {'completed': completed}}
+    )
 
-def update_todo_status(username, task, completed):
+# Function to display and update tasks
+def display_tasks(username):
     todos_collection = db[username]
-    todos_collection.update_one({'task': task}, {'$set': {'completed': completed}})
+    todos = list(todos_collection.find().sort('deadline', 1))  # Sort tasks by deadline
+    if todos:
+        for todo in todos:
+            task = todo['task']
+            deadline = todo['deadline']
+            completed = todo['completed']
+            task_id = todo['_id']
+            
+            # Show task with a checkbox for completion status
+            task_text = f"{task} - Deadline: {deadline.strftime('%Y-%m-%d')}"
+            if st.checkbox(task_text, completed, key=str(task_id)):
+                update_todo_status(username, task_id, not completed)  # Toggle completed status
 
-def delete_todo(username, task):
+# Function to prioritize tasks and visualize deadlines using a pie chart
+def visualize_priorities(username):
     todos_collection = db[username]
-    todos_collection.delete_one({'task': task})
+    todos = list(todos_collection.find())
 
+    if todos:
+        # Categorize tasks by remaining time (overdue, today, future)
+        overdue = 0
+        today = 0
+        upcoming = 0
+
+        for todo in todos:
+            deadline = todo['deadline']
+            if deadline.date() < datetime.today().date():
+                overdue += 1
+            elif deadline.date() == datetime.today().date():
+                today += 1
+            else:
+                upcoming += 1
+
+        labels = ['Overdue', 'Today', 'Upcoming']
+        sizes = [overdue, today, upcoming]
+        colors = ['#FF4C4C', '#FFD700', '#90EE90']
+        
+        fig, ax = plt.subplots()
+        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors)
+        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+        st.pyplot(fig)
+    else:
+        st.write("No tasks available to visualize.")
+
+# Streamlit app main function
 def main():
-    st.title("To-Do List Application")
+    st.title("To-Do List App")
 
-    # User input for name
+    # Get the user's name
     username = st.text_input("Enter your name:")
     
     if username:
-        # Input box for task and deadline
-        task = st.text_input("Enter a new task:", key='task_input')
-        deadline = st.date_input("Select a deadline:", key='deadline_input')
-
+        # Input fields for adding a new task
+        task = st.text_input("Task:")
+        deadline = st.date_input("Deadline:")
+        
         if st.button("Add Task"):
-            if task:
+            if task and deadline:
                 add_todo(username, task, deadline)
                 st.success("Task added successfully!")
-                st.session_state.task_input = ""  # Clear the input box after adding the task
             else:
-                st.warning("Please enter a task.")
-
-        # Display the current tasks
-        todos = get_todos(username)
-        if todos:
-            # Sort tasks based on deadline
-            todos.sort(key=lambda x: x['deadline'])
-
-            for idx, todo in enumerate(todos):
-                completed = todo['completed']
-                task_name = todo['task']
-                task_deadline = todo['deadline']
-                
-                # Display task with options to update status and delete
-                col1, col2, col3 = st.columns([3, 2, 1])
-                
-                with col1:
-                    st.write(f"{idx + 1}. Task: **{task_name}** | Deadline: **{task_deadline}**")
-                
-                with col2:
-                    if st.checkbox("Mark as done", value=completed, key=f"checkbox_{idx}"):
-                        update_todo_status(username, task_name, True)
-                        st.success("Task marked as completed!")
-                        st.experimental_rerun()  # Refresh to show updated state
-
-                with col3:
-                    if st.button("Delete", key=f"delete_{idx}"):
-                        delete_todo(username, task_name)
-                        st.success("Task deleted successfully!")
-                        st.experimental_rerun()  # Refresh to show updated state
-
-            # Visualize task completion with a pie chart
-            completed_count = sum(1 for todo in todos if todo['completed'])
-            not_completed_count = len(todos) - completed_count
-
-            labels = ['Completed', 'Not Completed']
-            sizes = [completed_count, not_completed_count]
-            colors = ['#66c2a5', '#fc8d62']
-            explode = (0.1, 0)  # explode 1st slice
-
-            # Create pie chart
-            fig, ax = plt.subplots()
-            ax.pie(sizes, explode=explode, labels=labels, colors=colors,
-                   autopct='%1.1f%%', shadow=True, startangle=90)
-            ax.axis('equal')  # Equal aspect ratio ensures the pie chart is circular.
-            st.pyplot(fig)
+                st.error("Please enter both task and deadline.")
+        
+        st.write("### Your Tasks")
+        display_tasks(username)
+        
+        st.write("### Task Priority Visualization")
+        visualize_priorities(username)
 
 if __name__ == "__main__":
     main()
