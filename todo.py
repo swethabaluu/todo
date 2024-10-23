@@ -1,7 +1,6 @@
 import streamlit as st
 from pymongo import MongoClient
-import datetime
-from datetime import datetime
+from datetime import datetime, date
 import matplotlib.pyplot as plt
 
 # MongoDB Atlas connection
@@ -10,7 +9,7 @@ db = client.todo_db
 
 # Function to add a new task
 def add_todo(username, task, deadline):
-    if isinstance(deadline, datetime.date):
+    if isinstance(deadline, date):
         # Convert datetime.date to datetime.datetime
         deadline = datetime.combine(deadline, datetime.min.time())  
     
