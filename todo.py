@@ -1,113 +1,92 @@
-# todo.py
-
 import streamlit as st
+import pymongo
 from pymongo import MongoClient
-from dotenv import load_dotenv
 import os
-from bson.objectid import ObjectId
-from datetime import datetime
+from dotenv import load_dotenv
+import datetime
 
 # Load environment variables from .env file
 load_dotenv()
 
 # MongoDB connection
-MONGODB_URI = os.getenv('MONGODB_URI')
+MONGODB_URI = os.getenv("MONGODB_URI")
 client = MongoClient(MONGODB_URI)
-db = client['todo_db']  # Use your database name here
-todos_collection = db['todos']  # Use your collection name here
+db = client.todo_db
+todos_collection = db.todos
 
 # Function to add a todo
 def add_todo(username, task, deadline):
-    # Convert deadline to datetime
-    deadline = datetime.combine(deadline, datetime.min.time())
-    todos_collection.insert_one({'username': username, 'task': task, 'deadline': deadline, 'completed': False})
+    todos_collection.insert_one({
+        'username': username,
+        'task': task,
+        'deadline': deadline,
+        'completed': False
+    })
 
-# Function to view todos for a specific user
-def view_todos(username):
-    return todos_collection.find({'username': username})
+# Function to get todos
+def get_todos(username):
+    return list(todos_collection.find({'username': username}))
 
 # Function to update a todo
-def update_todo(todo_id, new_task, new_deadline):
-    # Convert new_deadline to datetime
-    new_deadline = datetime.combine(new_deadline, datetime.min.time())
-    todos_collection.update_one({'_id': ObjectId(todo_id)}, {'$set': {'task': new_task, 'deadline': new_deadline}})
+def update_todo(todo_id, task, deadline, completed):
+    todos_collection.update_one(
+        {'_id': todo_id},
+        {'$set': {'task': task, 'deadline': deadline, 'completed': completed}}
+    )
 
 # Function to delete a todo
 def delete_todo(todo_id):
-    todos_collection.delete_one({'_id': ObjectId(todo_id)})
+    todos_collection.delete_one({'_id': todo_id})
 
-# Function to mark a todo as completed
-def mark_as_completed(todo_id):
-    todos_collection.update_one({'_id': ObjectId(todo_id)}, {'$set': {'completed': True}})
+# Function to mark todo as completed
+def mark_completed(todo_id):
+    todos_collection.update_one(
+        {'_id': todo_id},
+        {'$set': {'completed': True}}
+    )
 
-# Streamlit app interface
+# Streamlit UI
 def main():
-    st.set_page_config(page_title="To-Do List App", page_icon="📝", layout="wide")
-    st.title("📝 To-Do List Application")
-    st.markdown("---")
+    st.title("To-Do List Application")
 
-    # User input for name
-    username = st.text_input("👤 Enter your name", placeholder="Your Name")
-    
+    username = st.text_input("Enter your name")
+
     if username:
-        # Add a task section
-        st.subheader("Add a New Task")
-        task = st.text_input("🆕 Enter a new task", placeholder="Task description")
-        deadline = st.date_input("🗓️ Select a deadline", min_value=datetime.today().date())
+        st.subheader(f"Hello, {username}! Manage your tasks below:")
+        
+        # Add a new todo
+        task = st.text_input("Enter a new task")
+        deadline = st.date_input("Select a deadline", datetime.date.today())
 
-        if st.button("✅ Add Task"):
-            if task:
-                add_todo(username, task, deadline)
-                st.success(f'Task added: {task}', icon="✅")
-            else:
-                st.warning("❗ Please enter a task.", icon="⚠️")
+        if st.button("Add Task"):
+            add_todo(username, task, deadline)
+            st.success("Task added successfully!")
 
-        # Display tasks
-        st.markdown("---")
-        st.subheader(f"📋 {username}'s Current To-Do List")
-        todos = view_todos(username)
-
-        for todo in todos:
-            col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
-            
-            with col1:
-                # Task text with caution for pending tasks
-                completed_status = todo.get('completed', False)
+        # Display todos
+        todos = get_todos(username)
+        if todos:
+            for todo in todos:
                 deadline_str = todo['deadline'].strftime("%Y-%m-%d")  # Format deadline for display
-                task_display = f"{todo['task']} (Deadline: {deadline_str})"
+                st.write(f"**Task:** {todo['task']} | **Deadline:** {deadline_str}")
                 
-                if not completed_status:
-                    st.markdown(f"<div style='color: #D50000;'>{task_display}</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div style='color: #4CAF50;'>{task_display} - Completed</div>", unsafe_allow_html=True)
+                # Checkbox to mark as completed
+                if st.checkbox("Mark as done", key=todo['_id']):
+                    mark_completed(todo['_id'])
+                    st.success("Task marked as done!")
 
-            with col2:
-                # Checkbox for completion
-                if not completed_status:
-                    if st.checkbox("✅ Work Done", key=f"completed_{todo['_id']}"):
-                        mark_as_completed(todo['_id'])
-                        st.success(f'Task marked as done: {todo["task"]}', icon="✅")
-                        st.experimental_rerun()  # Refresh the page
+                # Update task
+                if st.button("Update", key=f"update-{todo['_id']}"):
+                    new_task = st.text_input("Update Task", value=todo['task'])
+                    new_deadline = st.date_input("Update Deadline", value=todo['deadline'])
+                    update_todo(todo['_id'], new_task, new_deadline, todo['completed'])
+                    st.success("Task updated successfully!")
 
-            with col3:
-                # Update functionality
-                new_task = st.text_input("Update task", value=todo['task'], key=f"new_task_{todo['_id']}")
-                new_deadline = st.date_input("Update deadline", value=todo['deadline'].date(), key=f"new_deadline_{todo['_id']}")
-                
-                if st.button("🔄 Update", key=f"update_{todo['_id']}"):
-                    if new_task:
-                        update_todo(todo['_id'], new_task, new_deadline)
-                        st.success(f'Task updated to: {new_task}', icon="✅")
-                        st.experimental_rerun()  # Refresh the page
-
-            with col4:
-                # Delete functionality
-                if st.button("❌ Delete", key=todo['_id']):
+                # Delete task
+                if st.button("Delete", key=f"delete-{todo['_id']}"):
                     delete_todo(todo['_id'])
-                    st.success(f'Task deleted: {todo["task"]}', icon="✅")
-                    st.experimental_rerun()  # Refresh the page
-    else:
-        st.warning("❗ Please enter your name to manage your To-Do list.", icon="⚠️")
+                    st.success("Task deleted successfully!")
+        else:
+            st.write("No tasks found.")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
