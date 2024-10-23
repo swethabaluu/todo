@@ -61,14 +61,15 @@ def main():
         st.write(f"Hello, {username}!")
         
         # Input field for adding a new task
-        task = st.text_input("New Task:", key="task_input")
+        # Use the value parameter to reset input after adding a task
+        task = st.text_input("New Task:", value="")
         
         if st.button("Add"):
             if task:
                 add_todo(username, task)
                 st.success("Task added successfully!")
-                # Reset the task input field for the next task
-                st.session_state.task_input = ""
+                # Clear the task input field by setting value to an empty string
+                task = ""
             else:
                 st.error("Please enter a task.")
 
