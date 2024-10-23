@@ -42,7 +42,8 @@ def display_tasks(username):
             # Task display with checkbox for completed status and caution symbol for incomplete tasks
             col1, col2, col3 = st.columns([6, 1, 1])
             with col1:
-                if st.checkbox(task, completed, key=task_id):
+                if st.checkbox(task, value=completed, key=task_id):
+                    # Toggle completion status on checkbox change
                     update_todo_status(username, task_id, not completed)
             with col2:
                 if not completed:
